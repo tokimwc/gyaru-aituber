@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOICEVOXストリーミング音声合成 パフォーマンステスト</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+        }
+        .subtitle {
+            text-align: center;
+            opacity: 0.8;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        button {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            border-left: 4px solid #ffd700;
+        }
+        .success {
+            color: #4ade80;
+        }
+        .error {
+            color: #f87171;
+        }
+        .info {
+            color: #60a5fa;
+        }
+        .warning {
+            color: #fbbf24;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ade80, #22c55e);
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 VOICEVOX パフォーマンステスト</h1>
+        <p class="subtitle">ストリーミング音声合成の速度測定</p>
+
+        <div class="test-section">
+            <h2>📊 テスト設定</h2>
+            <div class="result">
+VOICEVOX API: http://127.0.0.1:50021
+話者ID: 8 (春日部つむぎノーマル)
+テスト文数: 5文
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 テスト実行</h2>
+            <button onclick="runAllTests()" id="runButton">全テスト実行</button>
+            <button onclick="testSequential()">従来方式（一括合成）</button>
+            <button onclick="testStreaming()">新方式（ストリーミング）</button>
+            <button onclick="testParallel()">並列合成（最大性能）</button>
+            
+            <div id="progress" style="display: none;">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📈 テスト結果</h2>
+            <div id="results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 統計情報</h2>
+            <div class="stats" id="stats"></div>
+        </div>
+    </div>
+
+    <script>
+        const VOICEVOX_API_URL = "http://127.0.0.1:50021";
+        const SPEAKER_ID = 8;
+        
+        const TEST_SENTENCES = [
+            "あーし、今日マジでテンション上がってるんだけど！",
+            "せんぱいって、プログラミングめっちゃ得意じゃん？",
+            "あーしもコード書くの好きなんだよね〜。",
+            "でもさ、バグ出たときってマジ萎えるよね。",
+            "エラーログ見るの、ガチで苦手なんだけど。",
+        ];
+
+        let testResults = {
+            sequential: null,
+            streaming: [],
+            parallel: []
+        };
+
+        function log(message, type = 'info') {
+            const resultsDiv = document.getElementById('results');
+            const logDiv = document.createElement('div');
+            logDiv.className = `result ${type}`;
+            logDiv.textContent = message;
+            resultsDiv.appendChild(logDiv);
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function updateProgress(current, total) {
+            const progressDiv = document.getElementById('progress');
+            const progressFill = document.getElementById('progressFill');
+            progressDiv.style.display = 'block';
+            const percentage = (current / total) * 100;
+            progressFill.style.width = percentage + '%';
+            progressFill.textContent = Math.round(percentage) + '%';
+            
+            if (current === total) {
+                setTimeout(() => {
+                    progressDiv.style.display = 'none';
+                }, 1000);
+            }
+        }
+
+        function updateStats() {
+            const statsDiv = document.getElementById('stats');
+            statsDiv.innerHTML = '';
+
+            if (testResults.sequential) {
+                addStatCard('従来方式', `${testResults.sequential.totalTime.toFixed(3)}秒`, '全体処理時間');
+                addStatCard('待機時間', `${testResults.sequential.totalTime.toFixed(3)}秒`, '音声再生開始まで');
+            }
+
+            if (testResults.streaming.length > 0) {
+                const totalTime = testResults.streaming.reduce((sum, r) => sum + r.totalTime, 0);
+                const firstTime = testResults.streaming[0].totalTime;
+                addStatCard('新方式', `${totalTime.toFixed(3)}秒`, '全体処理時間');
+                addStatCard('待機時間', `${firstTime.toFixed(3)}秒`, '最初の音声まで');
+            }
+
+            if (testResults.sequential && testResults.streaming.length > 0) {
+                const improvement = ((testResults.sequential.totalTime - testResults.streaming[0].totalTime) / testResults.sequential.totalTime) * 100;
+                addStatCard('改善効果', `${improvement.toFixed(1)}%`, '体感速度向上');
+            }
+        }
+
+        function addStatCard(label, value, sublabel) {
+            const statsDiv = document.getElementById('stats');
+            const card = document.createElement('div');
+            card.className = 'stat-card';
+            card.innerHTML = `
+                <div class="stat-label">${label}</div>
+                <div class="stat-value">${value}</div>
+                <div class="stat-label">${sublabel}</div>
+            `;
+            statsDiv.appendChild(card);
+        }
+
+        async function synthesizeVoice(text) {
+            const startTime = performance.now();
+            
+            try {
+                // audio_query
+                const queryStart = performance.now();
+                const queryResponse = await fetch(
+                    `${VOICEVOX_API_URL}/audio_query?text=${encodeURIComponent(text)}&speaker=${SPEAKER_ID}`,
+                    { method: "POST" }
+                );
+                const queryTime = (performance.now() - queryStart) / 1000;
+                
+                if (!queryResponse.ok) {
+                    throw new Error(`Query failed: ${queryResponse.status}`);
+                }
+                const queryJson = await queryResponse.json();
+                
+                // synthesis
+                const synthesisStart = performance.now();
+                const synthesisResponse = await fetch(
+                    `${VOICEVOX_API_URL}/synthesis?speaker=${SPEAKER_ID}`,
+                    {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "Accept": "audio/wav" },
+                        body: JSON.stringify(queryJson)
+                    }
+                );
+                const synthesisTime = (performance.now() - synthesisStart) / 1000;
+                
+                if (!synthesisResponse.ok) {
+                    throw new Error(`Synthesis failed: ${synthesisResponse.status}`);
+                }
+                const audioBlob = await synthesisResponse.blob();
+                const totalTime = (performance.now() - startTime) / 1000;
+                
+                return {
+                    success: true,
+                    text: text,
+                    queryTime: queryTime,
+                    synthesisTime: synthesisTime,
+                    totalTime: totalTime,
+                    audioSize: audioBlob.size,
+                    textLength: text.length
+                };
+            } catch (error) {
+                return {
+                    success: false,
+                    text: text,
+                    error: error.message,
+                    totalTime: (performance.now() - startTime) / 1000
+                };
+            }
+        }
+
+        async function testSequential() {
+            log("================================================================================");
+            log("📊 従来方式テスト（一括合成）開始", "info");
+            log("================================================================================");
+            
+            const fullText = TEST_SENTENCES.join("");
+            log(`📝 テキスト: ${fullText}`);
+            log(`📏 文字数: ${fullText.length}文字`);
+            
+            const result = await synthesizeVoice(fullText);
+            
+            if (result.success) {
+                log(`✅ 合成成功`, "success");
+                log(`  ⏱️  Query時間: ${result.queryTime.toFixed(3)}秒`);
+                log(`  ⏱️  Synthesis時間: ${result.synthesisTime.toFixed(3)}秒`);
+                log(`  ⏱️  合計時間: ${result.totalTime.toFixed(3)}秒`);
+                log(`  📦 音声サイズ: ${result.audioSize.toLocaleString()}バイト`);
+                log(`  🚀 処理速度: ${(result.textLength / result.totalTime).toFixed(2)}文字/秒`);
+                testResults.sequential = result;
+            } else {
+                log(`❌ 合成失敗: ${result.error}`, "error");
+            }
+            
+            updateStats();
+        }
+
+        async function testStreaming() {
+            log("================================================================================");
+            log("📊 ストリーミング方式テスト（文単位で順次合成）開始", "info");
+            log("================================================================================");
+            
+            testResults.streaming = [];
+            
+            log(`📝 ${TEST_SENTENCES.length}文を順次合成中...`);
+            
+            for (let i = 0; i < TEST_SENTENCES.length; i++) {
+                const sentence = TEST_SENTENCES[i];
+                log(`\n[${i+1}/${TEST_SENTENCES.length}] ${sentence}`);
+                
+                const result = await synthesizeVoice(sentence);
+                
+                if (result.success) {
+                    log(`  ✅ Query: ${result.queryTime.toFixed(3)}秒 | Synthesis: ${result.synthesisTime.toFixed(3)}秒 | 合計: ${result.totalTime.toFixed(3)}秒`, "success");
+                    testResults.streaming.push(result);
+                } else {
+                    log(`  ❌ 失敗: ${result.error}`, "error");
+                }
+                
+                updateProgress(i + 1, TEST_SENTENCES.length);
+            }
+            
+            // 統計情報
+            if (testResults.streaming.length > 0) {
+                const avgQuery = testResults.streaming.reduce((sum, r) => sum + r.queryTime, 0) / testResults.streaming.length;
+                const avgSynthesis = testResults.streaming.reduce((sum, r) => sum + r.synthesisTime, 0) / testResults.streaming.length;
+                const avgTotal = testResults.streaming.reduce((sum, r) => sum + r.totalTime, 0) / testResults.streaming.length;
+                const totalChars = testResults.streaming.reduce((sum, r) => sum + r.textLength, 0);
+                const totalTime = testResults.streaming.reduce((sum, r) => sum + r.totalTime, 0);
+                const firstAudioTime = testResults.streaming[0].totalTime;
+                
+                log("\n--------------------------------------------------------------------------------");
+                log("📈 統計情報", "info");
+                log("--------------------------------------------------------------------------------");
+                log(`  合成成功: ${testResults.streaming.length}/${TEST_SENTENCES.length}文`);
+                log(`  平均Query時間: ${avgQuery.toFixed(3)}秒`);
+                log(`  平均Synthesis時間: ${avgSynthesis.toFixed(3)}秒`);
+                log(`  平均合計時間: ${avgTotal.toFixed(3)}秒/文`);
+                log(`  全体処理時間: ${totalTime.toFixed(3)}秒`);
+                log(`  総文字数: ${totalChars}文字`);
+                log(`  処理速度: ${(totalChars / totalTime).toFixed(2)}文字/秒`);
+                log(`\n⚡ 最初の音声再生開始まで: ${firstAudioTime.toFixed(3)}秒`, "warning");
+                log(`   （ユーザーが最初の音声を聞くまでの待ち時間）`);
+            }
+            
+            updateStats();
+        }
+
+        async function testParallel() {
+            log("================================================================================");
+            log("📊 並列合成テスト（理論上の最大性能）開始", "info");
+            log("================================================================================");
+            
+            log(`📝 ${TEST_SENTENCES.length}文を並列合成中...`);
+            
+            const startTime = performance.now();
+            const promises = TEST_SENTENCES.map(sentence => synthesizeVoice(sentence));
+            const results = await Promise.all(promises);
+            const totalTime = (performance.now() - startTime) / 1000;
+            
+            const successful = results.filter(r => r.success);
+            
+            if (successful.length > 0) {
+                const totalChars = successful.reduce((sum, r) => sum + r.textLength, 0);
+                const totalAudioSize = successful.reduce((sum, r) => sum + r.audioSize, 0);
+                
+                log(`✅ 合成成功: ${successful.length}/${TEST_SENTENCES.length}文`, "success");
+                log(`  ⏱️  並列処理時間: ${totalTime.toFixed(3)}秒`);
+                log(`  📏 総文字数: ${totalChars}文字`);
+                log(`  📦 総音声サイズ: ${totalAudioSize.toLocaleString()}バイト`);
+                log(`  🚀 処理速度: ${(totalChars / totalTime).toFixed(2)}文字/秒`);
+                
+                testResults.parallel = results;
+            }
+        }
+
+        async function runAllTests() {
+            const button = document.getElementById('runButton');
+            button.disabled = true;
+            
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('stats').innerHTML = '';
+            
+            try {
+                // VOICEVOX接続確認
+                log("🔍 VOICEVOX接続確認中...", "info");
+                const versionResponse = await fetch(`${VOICEVOX_API_URL}/version`);
+                if (versionResponse.ok) {
+                    const version = await versionResponse.json();
+                    log(`✅ VOICEVOX接続成功: ${version}`, "success");
+                } else {
+                    log(`⚠️  VOICEVOX接続エラー: ${versionResponse.status}`, "warning");
+                }
+                
+                await testSequential();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                await testStreaming();
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                await testParallel();
+                
+                // 比較結果
+                if (testResults.sequential && testResults.streaming.length > 0) {
+                    log("\n================================================================================");
+                    log("📊 パフォーマンス比較", "info");
+                    log("================================================================================");
+                    
+                    const seqTime = testResults.sequential.totalTime;
+                    const streamFirst = testResults.streaming[0].totalTime;
+                    const improvement = ((seqTime - streamFirst) / seqTime) * 100;
+                    
+                    log(`\n【従来方式（一括合成）】`);
+                    log(`  ⏱️  全体処理時間: ${seqTime.toFixed(3)}秒`);
+                    log(`  ⚡ ユーザー待機時間: ${seqTime.toFixed(3)}秒（音声再生開始まで）`);
+                    
+                    log(`\n【新方式（ストリーミング合成）】`);
+                    const streamTotal = testResults.streaming.reduce((sum, r) => sum + r.totalTime, 0);
+                    log(`  ⏱️  全体処理時間: ${streamTotal.toFixed(3)}秒`);
+                    log(`  ⚡ ユーザー待機時間: ${streamFirst.toFixed(3)}秒（最初の音声再生開始まで）`);
+                    
+                    log(`\n【改善効果】`, "warning");
+                    log(`  🚀 体感速度向上: ${improvement.toFixed(1)}%`);
+                    log(`  ⏱️  待機時間短縮: ${(seqTime - streamFirst).toFixed(3)}秒`);
+                    
+                    log(`\n【結論】`, improvement > 50 ? "success" : "info");
+                    if (improvement > 50) {
+                        log(`  ✨ ストリーミング方式により、体感速度が大幅に向上しました！`);
+                        log(`     ユーザーは ${streamFirst.toFixed(1)}秒で最初の音声を聞くことができます。`);
+                    } else {
+                        log(`  ✅ ストリーミング方式により、体感速度が向上しました。`);
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ テスト実行エラー: ${error.message}`, "error");
+            } finally {
+                button.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

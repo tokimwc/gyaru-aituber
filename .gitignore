@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Outputs
+outputs/raw/*
+outputs/processed/*
+logs/*.log
+!outputs/raw/.gitkeep
+!outputs/processed/.gitkeep
+!logs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Model files
+*.safetensors
+*.bin
+*.gguf
+models/
+
+# Temp
+tmp/
+temp/
+*.tmp
+
+# Environment variables and config files
+.env
+config/generation_config.yaml
+
+# Generated files
+# Vector files: Include pre-extracted vector for easy testing
+outputs/vectors/*.pt
+!outputs/vectors/Qwen2.5-32B-Instruct-bnb-4bit_gyaru_vector_manual.pt
+*.json
+!package.json
+!tsconfig.json
+
+# Agents and private context
+AGENTS.md
+docs/SECRET_CONTEXT.md

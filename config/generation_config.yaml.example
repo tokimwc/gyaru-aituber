@@ -1,0 +1,62 @@
+# Gyaru Dataset Generator Configuration
+
+# Model settings
+model:
+  # ローカルモデルのパス（例: models/Qwen2.5-32B-Instruct-bnb-4bit）
+  # または Hugging Face Hub名（例: unsloth/Qwen2.5-32B-Instruct-bnb-4bit）
+  path: "YOUR_MODEL_PATH_HERE"
+  # 14Bモデルを使用する場合の例
+  # path: "models/Qwen2.5-14B-Instruct-bnb-4bit"
+  quantization: "bitsandbytes"  # gptq or bitsandbytes
+
+# vLLM server settings
+vllm:
+  host: "localhost"
+  port: 8000
+  api_base: "http://localhost:8000/v1"
+  # Using bitsandbytes 4bit quantization
+  quantization: "bitsandbytes"
+  # Tensor parallel (for multi-GPU, set to 1 for single GPU)
+  tensor_parallel_size: 1
+  # GPU memory utilization (0.0-1.0) - reduced for 4bit model
+  gpu_memory_utilization: 0.80
+  # Max model length (4bit model has more VRAM headroom)
+  max_model_len: 8192
+  # Trust remote code (required for Qwen3)
+  trust_remote_code: true
+
+# Generation parameters
+generation:
+  # Number of pairs per batch
+  num_pairs_per_batch: 30
+  # Total number of batches (30 x 4 = 120 pairs)
+  total_batches: 4
+  # Temperature for diversity
+  temperature: 0.8
+  # Top-p sampling
+  top_p: 0.9
+  # Max new tokens per response
+  max_new_tokens: 2000
+  # Stop sequences
+  stop: ["```", "\n\n\n"]
+
+# Output settings
+output:
+  # Output directory
+  output_dir: "outputs"
+  # Raw batch output directory
+  raw_dir: "outputs/raw"
+  # Processed output directory
+  processed_dir: "outputs/processed"
+  # Final output filename
+  filename: "gyaru_dataset.json"
+
+# Validation settings
+validation:
+  # Check for "あーし" in gyaru text
+  require_ash: true
+  # Required fields
+  required_fields:
+    - "topic"
+    - "standard"
+    - "gyaru"

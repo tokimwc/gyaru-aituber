@@ -1,0 +1,25 @@
+# Core dependencies for Gyaru Dataset Generator
+# Python 3.11+ required
+
+# vLLM for inference
+vllm>=0.6.0
+
+# OpenAI client for vLLM API
+openai>=1.0.0
+
+# Data handling
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# JSON/YAML processing
+pyyaml>=6.0
+
+# Progress bars and logging
+rich>=13.0.0
+tqdm>=4.65.0
+
+# Validation
+jsonschema>=4.17.0
+
+# Optional: for analysis
+pandas>=2.0.0
